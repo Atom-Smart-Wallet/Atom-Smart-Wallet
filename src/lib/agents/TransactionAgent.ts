@@ -1,6 +1,6 @@
 import { DynamicTool } from '@langchain/core/tools';
 import { ethers } from 'ethers';
-import { sendSingleTransaction } from '../services/wallet';
+import { sendSingleTransaction, sendBatchTransactions } from '../services/wallet';
 import { getSmartAccountRegistry, sendEthToAAWallet } from '../services/contracts';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
@@ -76,6 +76,64 @@ export class TransactionAgent {
         },
       }),
       new DynamicTool({
+        name: 'send_batch_eth',
+        description: 'Send ETH to multiple recipients in a batch. Input should be a JSON string with recipients array and amounts array.',
+        func: async (input: string) => {
+          try {
+            const { recipients, amounts } = JSON.parse(input);
+            
+            if (!Array.isArray(recipients) || !Array.isArray(amounts)) {
+              throw new Error('Recipients and amounts must be arrays');
+            }
+
+            if (recipients.length !== amounts.length) {
+              throw new Error('Recipients and amounts arrays must have the same length');
+            }
+
+            // Resolve all usernames to addresses
+            const resolvedAddresses = await Promise.all(
+              recipients.map(async (recipient) => {
+                if (!recipient.startsWith('0x')) {
+                  return await this.resolveUsername(recipient);
+                } else if (!ethers.utils.isAddress(recipient)) {
+                  throw new Error(`Invalid Ethereum address: ${recipient}`);
+                }
+                return recipient;
+              })
+            );
+
+            // Format all amounts
+            const formattedAmounts = amounts.map((amount) => {
+              if (typeof amount === 'number') {
+                return amount.toString();
+              } else if (typeof amount === 'string') {
+                return amount.replace(/[^\d.]/g, '');
+              }
+              throw new Error('Invalid amount format');
+            });
+
+            // Send batch transaction using the same function as the button
+            await sendBatchTransactions(
+              this.signer,
+              this.accountAddress,
+              resolvedAddresses,
+              formattedAmounts
+            );
+
+            // Create summary of transactions
+            const summary = recipients.map((recipient, i) => 
+              `${recipient}: ${amounts[i]} ETH`
+            ).join('\n');
+
+            return `✅ Batch işlem başarıyla gönderildi!\n\nÖzet:\n${summary}`;
+          } catch (error) {
+            console.error('Batch transaction error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+            throw new Error(`Batch işlem başarısız: ${errorMessage}`);
+          }
+        },
+      }),
+      new DynamicTool({
         name: 'fund_account',
         description: 'Fund the smart account with ETH from EOA wallet. Input should be a JSON string with amount in ETH.',
         func: async (input: string) => {
@@ -126,7 +184,12 @@ export class TransactionAgent {
     ];
   }
 
-  private extractJsonFromResponse(content: string): { recipient?: string; amount: number } | null {
+  private extractJsonFromResponse(content: string): { 
+    recipient?: string; 
+    recipients?: string[];
+    amount?: number;
+    amounts?: number[];
+  } | null {
     try {
       const jsonMatch = content.match(/\{[^}]+\}/);
       if (jsonMatch) {
@@ -153,9 +216,14 @@ export class TransactionAgent {
       const response = await this.model.invoke([
         ["system", `Sen yardımcı bir AI asistanısın. Kripto para transferleri yapabilir ve genel sohbet edebilirsin.
          
-         Kullanıcı ETH göndermek istediğinde:
+         Kullanıcı tek bir ETH transferi istediğinde:
          1. Mesajı analiz et ve alıcı ile miktarı belirle
          2. JSON formatında yanıt ver: {"recipient": "kullanıcı_adı", "amount": miktar}
+         3. JSON'dan önce ve sonra bir açıklama ekle
+         
+         Kullanıcı birden fazla kişiye ETH transferi istediğinde (batch):
+         1. Mesajı analiz et ve alıcılar ile miktarları belirle
+         2. JSON formatında yanıt ver: {"recipients": ["kullanıcı1", "kullanıcı2"], "amounts": [miktar1, miktar2]}
          3. JSON'dan önce ve sonra bir açıklama ekle
          
          Kullanıcı Smart Account'u fonlamak istediğinde (EOA -> AA transfer):
@@ -170,8 +238,8 @@ export class TransactionAgent {
          
          Örnek kullanımlar:
          - "ali'ye 1 eth gönder" -> send_eth tool'u: {"recipient": "ali", "amount": 1}
-         - "hesabıma 2 eth yükle" -> fund_account tool'u: {"amount": 2}
-         - "smart account'a 0.5 eth gönder" -> fund_account tool'u: {"amount": 0.5}`],
+         - "ali ve veli'ye 1'er eth gönder" -> send_batch_eth tool'u: {"recipients": ["ali", "veli"], "amounts": [1, 1]}
+         - "hesabıma 2 eth yükle" -> fund_account tool'u: {"amount": 2}`],
         ["human", message]
       ]);
 
@@ -181,8 +249,8 @@ export class TransactionAgent {
       const txDetails = this.extractJsonFromResponse(content);
       if (txDetails) {
         const tools = this.createTools();
-        // Eğer recipient varsa send_eth, yoksa fund_account
-        const tool = txDetails.recipient ? tools[0] : tools[1];
+        // Tool seçimi: recipients varsa batch, recipient varsa single, yoksa fund
+        const tool = txDetails.recipients ? tools[1] : txDetails.recipient ? tools[0] : tools[2];
         const result = await tool.func(JSON.stringify(txDetails));
         return this.formatResponse(result);
       }
