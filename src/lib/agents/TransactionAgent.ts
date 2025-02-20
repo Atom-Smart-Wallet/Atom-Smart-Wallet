@@ -1,7 +1,7 @@
 import { DynamicTool } from '@langchain/core/tools';
 import { ethers } from 'ethers';
 import { sendSingleTransaction } from '../services/wallet';
-import { getSmartAccountRegistry } from '../services/contracts';
+import { getSmartAccountRegistry, sendEthToAAWallet } from '../services/contracts';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
 export class TransactionAgent {
@@ -42,29 +42,91 @@ export class TransactionAgent {
             const { recipient, amount } = JSON.parse(input);
             
             // Resolve username if not an address
-            const resolvedAddress = recipient.startsWith('0x') 
-              ? recipient 
-              : await this.resolveUsername(recipient);
+            let resolvedAddress = recipient;
+            if (!recipient.startsWith('0x')) {
+              resolvedAddress = await this.resolveUsername(recipient);
+            } else if (!ethers.utils.isAddress(recipient)) {
+              throw new Error('Invalid Ethereum address');
+            }
 
-            // Send transaction
+            // Format amount properly
+            let formattedAmount: string;
+            if (typeof amount === 'number') {
+              formattedAmount = amount.toString();
+            } else if (typeof amount === 'string') {
+              formattedAmount = amount.replace(/[^\d.]/g, '');
+            } else {
+              throw new Error('Invalid amount format');
+            }
+
+            // Send transaction using the same function as the button
             await sendSingleTransaction(
               this.signer,
               this.accountAddress,
               resolvedAddress,
-              amount.toString()
+              formattedAmount
             );
 
-            return `✅ İşlem başarıyla gönderildi!\nAlıcı: ${recipient}\nMiktar: ${amount} ETH`;
+            return `✅ İşlem başarıyla gönderildi!\nAlıcı: ${recipient}\nMiktar: ${formattedAmount} ETH`;
           } catch (error) {
+            console.error('Transaction error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
             throw new Error(`İşlem başarısız: ${errorMessage}`);
+          }
+        },
+      }),
+      new DynamicTool({
+        name: 'fund_account',
+        description: 'Fund the smart account with ETH from EOA wallet. Input should be a JSON string with amount in ETH.',
+        func: async (input: string) => {
+          try {
+            console.log('Fund account tool input:', input);
+            const { amount } = JSON.parse(input);
+            console.log('Parsed amount:', amount, typeof amount);
+
+            // Format amount properly
+            let formattedAmount: string;
+            if (typeof amount === 'number') {
+              formattedAmount = amount.toString();
+            } else if (typeof amount === 'string') {
+              // Remove any non-numeric characters except dot
+              formattedAmount = amount.replace(/[^\d.]/g, '');
+            } else {
+              throw new Error('Invalid amount format');
+            }
+
+            console.log('Formatted amount:', formattedAmount);
+            
+            // Validate amount
+            const parsedAmount = parseFloat(formattedAmount);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) {
+              throw new Error('Miktar sıfırdan büyük olmalıdır');
+            }
+
+            // Send ETH from EOA to AA wallet
+            console.log('Sending ETH to AA wallet...');
+            console.log('Signer:', this.signer);
+            console.log('Account address:', this.accountAddress);
+            
+            const tx = await sendEthToAAWallet(
+              this.signer,
+              this.accountAddress,
+              formattedAmount
+            );
+            console.log('Transaction result:', tx);
+
+            return `✅ Smart Account başarıyla fonlandı!\nGönderilen: ${formattedAmount} ETH\nAlıcı Hesap: Smart Account`;
+          } catch (error) {
+            console.error('Fund account tool error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+            throw new Error(`Fonlama başarısız: ${errorMessage}`);
           }
         },
       }),
     ];
   }
 
-  private extractJsonFromResponse(content: string): { recipient: string; amount: number } | null {
+  private extractJsonFromResponse(content: string): { recipient?: string; amount: number } | null {
     try {
       const jsonMatch = content.match(/\{[^}]+\}/);
       if (jsonMatch) {
@@ -96,10 +158,20 @@ export class TransactionAgent {
          2. JSON formatında yanıt ver: {"recipient": "kullanıcı_adı", "amount": miktar}
          3. JSON'dan önce ve sonra bir açıklama ekle
          
+         Kullanıcı Smart Account'u fonlamak istediğinde (EOA -> AA transfer):
+         1. Mesajı analiz et ve miktarı belirle (örn: "hesabıma/smart account'a/cüzdanıma X eth yükle/gönder")
+         2. JSON formatında yanıt ver: {"amount": miktar}
+         3. JSON'dan önce ve sonra bir açıklama ekle
+         
          Genel sohbet için:
          - Doğal ve samimi bir şekilde yanıt ver
          - Her zaman Türkçe konuş
-         - Nazik ve yardımsever ol`],
+         - Nazik ve yardımsever ol
+         
+         Örnek kullanımlar:
+         - "ali'ye 1 eth gönder" -> send_eth tool'u: {"recipient": "ali", "amount": 1}
+         - "hesabıma 2 eth yükle" -> fund_account tool'u: {"amount": 2}
+         - "smart account'a 0.5 eth gönder" -> fund_account tool'u: {"amount": 0.5}`],
         ["human", message]
       ]);
 
@@ -108,7 +180,9 @@ export class TransactionAgent {
       // JSON içeren yanıtları işle
       const txDetails = this.extractJsonFromResponse(content);
       if (txDetails) {
-        const tool = this.createTools()[0];
+        const tools = this.createTools();
+        // Eğer recipient varsa send_eth, yoksa fund_account
+        const tool = txDetails.recipient ? tools[0] : tools[1];
         const result = await tool.func(JSON.stringify(txDetails));
         return this.formatResponse(result);
       }

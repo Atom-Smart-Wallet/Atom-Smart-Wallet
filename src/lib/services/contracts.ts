@@ -170,18 +170,59 @@ export const sendEthToAAWallet = async (
     amount: string
 ) => {
     try {
+        console.log('sendEthToAAWallet called with:', { aaWalletAddress, amount });
+        
         if (!signer.provider) {
             throw new Error('Provider not available');
         }
 
+        // Validate amount
+        console.log('Parsing amount to wei:', amount);
+        const amountInWei = ethers.utils.parseEther(amount);
+        console.log('Amount in wei:', amountInWei.toString());
+        
+        if (amountInWei.lte(0)) {
+            throw new Error('Amount must be greater than 0');
+        }
+
+        // Check EOA balance
+        const eoaAddress = await signer.getAddress();
+        console.log('EOA address:', eoaAddress);
+        
+        const balance = await signer.provider.getBalance(eoaAddress);
+        console.log('EOA balance:', ethers.utils.formatEther(balance), 'ETH');
+        
+        if (balance.lt(amountInWei)) {
+            throw new Error('Insufficient balance in EOA wallet');
+        }
+
+        // Send transaction
+        console.log('Sending transaction...');
         const tx = await signer.sendTransaction({
             to: aaWalletAddress,
-            value: ethers.utils.parseEther(amount)
+            value: amountInWei
         });
-        await tx.wait();
+        console.log('Transaction sent:', tx.hash);
+
+        // Wait for confirmation
+        console.log('Waiting for confirmation...');
+        const receipt = await tx.wait();
+        console.log('Transaction receipt:', receipt);
+        
+        if (receipt.status === 0) {
+            throw new Error('Transaction failed');
+        }
+
         return tx;
     } catch (error) {
-        console.error('Error sending ETH to AA wallet:', error);
-        throw error;
+        console.error('Error details:', error);
+        if (error instanceof Error) {
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            throw new Error(`ETH gönderme işlemi başarısız: ${error.message}`);
+        } else {
+            console.error('Unknown error type:', typeof error);
+            throw new Error('ETH gönderme işlemi başarısız: Bilinmeyen hata');
+        }
     }
 }; 

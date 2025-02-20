@@ -3,23 +3,26 @@
 import { useState } from 'react';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { sendEthToAAWallet } from '@/lib/services/contracts';
+import { ethers } from 'ethers';
 
 interface SendEthSectionProps {
-  aaWalletAddress: string;
+  signer?: ethers.Signer;
+  accountAddress: string;
+  onSuccess?: () => void;
 }
 
-export const SendEthSection = ({ aaWalletAddress }: SendEthSectionProps) => {
+export const SendEthSection = ({ signer: propSigner, accountAddress, onSuccess }: SendEthSectionProps) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signer, connectWallet } = useWallet();
+  const { signer: hookSigner, connectWallet } = useWallet();
 
   const handleSendEth = async () => {
     try {
       setLoading(true);
       setError('');
       
-      let currentSigner = signer;
+      let currentSigner = propSigner || hookSigner;
       if (!currentSigner || !currentSigner.provider) {
         const result = await connectWallet();
         if (!result?.signer) {
@@ -32,9 +35,9 @@ export const SendEthSection = ({ aaWalletAddress }: SendEthSectionProps) => {
         throw new Error('No provider available');
       }
       
-      await sendEthToAAWallet(currentSigner, aaWalletAddress, amount);
+      await sendEthToAAWallet(currentSigner, accountAddress, amount);
       setAmount('');
-      window.location.reload();
+      onSuccess?.();
     } catch (err) {
       console.error('Error sending ETH:', err);
       setError(err instanceof Error ? err.message : 'Failed to send ETH. Please try again.');

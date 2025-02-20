@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { checkAndCreateAccount, updateBalances, sendBatchTransactions, sendSingleTransaction } from '@/lib/services/wallet';
 import { isUsernameAvailable, getExistingAccount } from '@/lib/services/contracts';
@@ -11,6 +11,7 @@ import { SingleTransactionForm } from './components/SingleTransactionForm';
 import { DualTransactionForm } from './components/DualTransactionForm';
 import { SendEthSection } from './components/SendEthSection';
 import ChatComponent from '@/components/chat/ChatComponent';
+import { ethers } from 'ethers';
 
 export default function Home() {
   const [address, setAddress] = useState<string>('');
@@ -21,7 +22,7 @@ export default function Home() {
   const [eoaBalance, setEoaBalance] = useState<string>('0');
   const [aaBalance, setAaBalance] = useState<string>('0');
   const [txLoading, setTxLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'fund' | 'single' | 'batch'>('fund');
+  const [activeTab, setActiveTab] = useState<'fund' | 'single' | 'batch' | 'chat'>('fund');
   const [username, setUsername] = useState<string>('');
   const [usernameError, setUsernameError] = useState<string>('');
   const [checkingUsername, setCheckingUsername] = useState(false);
@@ -181,6 +182,11 @@ export default function Home() {
     }
   };
 
+  // Wallet bağlantı kontrolü
+  const isWalletConnected = useMemo(() => {
+    return signer !== null;
+  }, [signer]);
+
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -256,6 +262,12 @@ export default function Home() {
                     >
                       Batch Transaction
                     </TabButton>
+                    <TabButton
+                      active={activeTab === 'chat'}
+                      onClick={() => setActiveTab('chat')}
+                    >
+                      Chat
+                    </TabButton>
                   </div>
                   
                   <div className="mt-4">
@@ -268,6 +280,7 @@ export default function Home() {
                     )}
                     {activeTab === 'single' && (
                       <SingleTransactionForm 
+                        signer={signer} 
                         onSubmit={handleSendSingleTransaction} 
                         loading={txLoading}
                       />
@@ -276,6 +289,13 @@ export default function Home() {
                       <DualTransactionForm 
                         onSubmit={handleSendBatchTransactions} 
                         loading={txLoading}
+                      />
+                    )}
+                    {activeTab === 'chat' && (
+                      <ChatComponent 
+                        signer={signer}
+                        accountAddress={accountAddress || ''}
+                        onTransactionComplete={refreshBalances}
                       />
                     )}
                   </div>
@@ -329,18 +349,6 @@ export default function Home() {
                 </div>
               </div>
             )}
-            
-            {/* Chat Component */}
-            <div className="bg-gray-900 rounded-2xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-100 mb-4">
-                AI Chat Assistant
-              </h2>
-              <ChatComponent 
-                signer={signer}
-                accountAddress={accountAddress}
-                onTransactionComplete={refreshBalances}
-              />
-            </div>
           </div>
         )}
       </div>
