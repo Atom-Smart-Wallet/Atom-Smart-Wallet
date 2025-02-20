@@ -262,7 +262,11 @@ export default function Home() {
                       <SendEthSection aaWalletAddress={accountAddress} />
                     )}
                     {activeTab === 'single' && (
-                      <SingleTransactionForm onSubmit={handleSendSingleTransaction} loading={txLoading} />
+                      <SingleTransactionForm 
+                        onSubmit={handleSendSingleTransaction} 
+                        loading={txLoading}
+                        signer={signer}
+                      />
                     )}
                     {activeTab === 'batch' && (
                       <DualTransactionForm onSubmit={handleSendBatchTransactions} loading={txLoading} />

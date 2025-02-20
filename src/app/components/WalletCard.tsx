@@ -24,11 +24,8 @@ export const WalletCard = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('WalletCard props:', { label, address, showUsername, hasSigner: !!signer });
-
     const fetchName = async () => {
       if (!signer || !showUsername || !address) {
-        console.log('Not fetching name - missing requirements:', { hasSigner: !!signer, showUsername, address });
         setDisplayName(address);
         return;
       }
@@ -36,21 +33,15 @@ export const WalletCard = ({
       try {
         setIsLoading(true);
         setError(null);
-        console.log('Getting smart account instance for:', address);
         const smartAccount = getSmartAccount(address, signer);
-        
-        console.log('Calling getName() on smart account...');
         const name = await smartAccount.getName();
-        console.log('getName() result:', name);
         
         if (name && name !== '') {
           setDisplayName(name);
         } else {
-          console.log('No name found, using address');
           setDisplayName(address);
         }
       } catch (error) {
-        console.error('Error fetching name:', error);
         setError('Failed to fetch name');
         setDisplayName(address);
       } finally {
