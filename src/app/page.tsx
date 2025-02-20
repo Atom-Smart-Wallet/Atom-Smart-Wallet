@@ -10,6 +10,7 @@ import { TabButton } from './components/TabButton';
 import { SingleTransactionForm } from './components/SingleTransactionForm';
 import { DualTransactionForm } from './components/DualTransactionForm';
 import { SendEthSection } from './components/SendEthSection';
+import ChatComponent from '@/components/chat/ChatComponent';
 
 export default function Home() {
   const [address, setAddress] = useState<string>('');
@@ -253,90 +254,95 @@ export default function Home() {
                       active={activeTab === 'batch'}
                       onClick={() => setActiveTab('batch')}
                     >
-                      Batch Transactions
+                      Batch Transaction
                     </TabButton>
                   </div>
                   
                   <div className="mt-4">
                     {activeTab === 'fund' && (
-                      <SendEthSection aaWalletAddress={accountAddress} />
+                      <SendEthSection
+                        signer={signer}
+                        accountAddress={accountAddress}
+                        onSuccess={refreshBalances}
+                      />
                     )}
                     {activeTab === 'single' && (
                       <SingleTransactionForm 
                         onSubmit={handleSendSingleTransaction} 
                         loading={txLoading}
-                        signer={signer}
                       />
                     )}
                     {activeTab === 'batch' && (
                       <DualTransactionForm 
                         onSubmit={handleSendBatchTransactions} 
                         loading={txLoading}
-                        signer={signer}
                       />
                     )}
                   </div>
                 </div>
+
+                {error && (
+                  <div className="text-red-500 text-center">{error}</div>
+                )}
+
+                <PaymasterInfo />
               </div>
             ) : (
-              <div className="flex flex-col items-center py-10 space-y-4">
-                <div className="w-full max-w-md">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
-                  <div className="relative">
+              <div className="bg-gray-900 rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-100 mb-4">
+                  Create Smart Account
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+                      Username
+                    </label>
                     <input
                       type="text"
+                      id="username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                      placeholder="Enter username (e.g. alice123)"
-                      className={`w-full px-4 py-2 bg-gray-800 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100 ${
-                        usernameError ? 'border-red-500' : 'border-gray-700'
-                      }`}
+                      placeholder="Enter username"
+                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     {checkingUsername && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                      </div>
+                      <p className="text-gray-400 text-sm mt-1">Checking username...</p>
+                    )}
+                    {usernameError && (
+                      <p className="text-red-500 text-sm mt-1">{usernameError}</p>
                     )}
                   </div>
-                  {usernameError ? (
-                    <p className="mt-1 text-sm text-red-400">{usernameError}</p>
-                  ) : (
-                    <p className="mt-1 text-sm text-gray-400">
-                      Your username will be registered as {username ? `${username}.units` : 'username.units'}
-                    </p>
+                  <button
+                    onClick={handleCreateAccount}
+                    disabled={loading || !!usernameError}
+                    className={`w-full px-4 py-2 rounded-lg text-white font-medium transition-all duration-200 ${
+                      loading || !!usernameError
+                        ? 'bg-gray-700 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                    }`}
+                  >
+                    {loading ? 'Creating Account...' : 'Create Account'}
+                  </button>
+                  {error && (
+                    <p className="text-red-500 text-sm text-center">{error}</p>
                   )}
                 </div>
-
-                <button
-                  onClick={handleCreateAccount}
-                  disabled={loading || !username || !!usernameError || checkingUsername}
-                  className={`px-8 py-4 rounded-xl text-white font-medium text-lg transition-all duration-200 ${
-                    loading || !username || !!usernameError || checkingUsername
-                      ? 'bg-gray-700 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 active:transform active:scale-[0.99]'
-                  }`}
-                >
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Creating...
-                    </div>
-                  ) : (
-                    'Create Smart Account'
-                  )}
-                </button>
               </div>
             )}
+            
+            {/* Chat Component */}
+            <div className="bg-gray-900 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-100 mb-4">
+                AI Chat Assistant
+              </h2>
+              <ChatComponent 
+                signer={signer}
+                accountAddress={accountAddress}
+                onTransactionComplete={refreshBalances}
+              />
+            </div>
           </div>
         )}
-
-        {error && (
-          <div className="p-4 bg-gray-800 border border-red-500 rounded-xl">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
-        <PaymasterInfo />
       </div>
     </div>
   );
