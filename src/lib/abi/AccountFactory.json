@@ -6,6 +6,11 @@
         "name": "_entryPoint",
         "type": "address",
         "internalType": "contract IEntryPoint"
+      },
+      {
+        "name": "_nameRegistry",
+        "type": "address",
+        "internalType": "contract SmartAccountRegistry"
       }
     ],
     "stateMutability": "nonpayable"
@@ -23,6 +28,35 @@
         "name": "salt",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "contract SmartAccount"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createAccountWithName",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "salt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "outputs": [
@@ -67,6 +101,19 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nameRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract SmartAccountRegistry"
       }
     ],
     "stateMutability": "view"

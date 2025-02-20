@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { checkAndCreateAccount, updateBalances, sendBatchTransactions, sendSingleTransaction } from '@/lib/services/wallet';
+import { isUsernameAvailable, getExistingAccount } from '@/lib/services/contracts';
 import PaymasterInfo from './components/PaymasterInfo';
 import { WalletCard } from './components/WalletCard';
 import { TabButton } from './components/TabButton';
@@ -20,6 +21,9 @@ export default function Home() {
   const [aaBalance, setAaBalance] = useState<string>('0');
   const [txLoading, setTxLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'fund' | 'single' | 'batch'>('fund');
+  const [username, setUsername] = useState<string>('');
+  const [usernameError, setUsernameError] = useState<string>('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const { signer, connectWallet, address: walletAddress } = useWallet();
 
   const refreshBalances = async () => {
@@ -38,15 +42,22 @@ export default function Home() {
     if (walletAddress && !address) {
       setAddress(walletAddress);
       if (signer) {
-        checkAndCreateAccount(signer)
-          .then(({ accountAddress, isExisting }) => {
-            setAccountAddress(accountAddress);
-            setHasAccount(isExisting);
-            return updateBalances(signer, accountAddress);
+        // Check if user has an existing account
+        getExistingAccount(signer)
+          .then(async (existingAccount) => {
+            if (existingAccount) {
+              setAccountAddress(existingAccount);
+              setHasAccount(true);
+              return updateBalances(signer, existingAccount);
+            } else {
+              return updateBalances(signer);
+            }
           })
           .then(({ eoaBalance: eoa, aaBalance: aa }) => {
             setEoaBalance(eoa);
-            setAaBalance(aa);
+            if (aa !== '0') {
+              setAaBalance(aa);
+            }
           })
           .catch(console.error);
       }
@@ -54,7 +65,7 @@ export default function Home() {
   }, [walletAddress, signer, address]);
 
   useEffect(() => {
-    if (signer && accountAddress) {
+    if (signer && accountAddress && hasAccount) {
       // Initial balance update
       refreshBalances();
 
@@ -64,23 +75,65 @@ export default function Home() {
       // Cleanup interval on unmount or when dependencies change
       return () => clearInterval(interval);
     }
-  }, [signer, accountAddress]);
+  }, [signer, accountAddress, hasAccount]);
+
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (!username || !signer) return;
+      
+      // Validate username format first
+      if (!username.match(/^[a-z0-9]+$/)) {
+        setUsernameError('Username can only contain lowercase letters and numbers');
+        return;
+      }
+
+      try {
+        setCheckingUsername(true);
+        setUsernameError('');
+        const available = await isUsernameAvailable(signer, username);
+        if (!available) {
+          setUsernameError('This username is already taken');
+        }
+      } catch (err) {
+        console.error('Error checking username:', err);
+        setUsernameError('Error checking username availability');
+      } finally {
+        setCheckingUsername(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkUsername, 500);
+    return () => clearTimeout(timeoutId);
+  }, [username, signer]);
 
   const handleCreateAccount = async () => {
     try {
       setLoading(true);
       setError('');
       if (!signer) throw new Error('Please connect your wallet first');
+      if (!username) throw new Error('Please enter a username');
+      if (usernameError) throw new Error(usernameError);
 
-      const { accountAddress: newAccountAddress } = await checkAndCreateAccount(signer);
+      // Validate username format
+      if (!username.match(/^[a-z0-9]+$/)) {
+        throw new Error('Username can only contain lowercase letters and numbers');
+      }
+
+      // Double check availability before creating
+      const available = await isUsernameAvailable(signer, username);
+      if (!available) {
+        throw new Error('This username is already taken');
+      }
+
+      const { accountAddress: newAccountAddress } = await checkAndCreateAccount(signer, username);
       setAccountAddress(newAccountAddress);
       setHasAccount(true);
 
       const { eoaBalance: eoa, aaBalance: aa } = await updateBalances(signer, newAccountAddress);
       setEoaBalance(eoa);
       setAaBalance(aa);
-    } catch (err) {
-      setError('Failed to create account');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account');
       console.error(err);
     } finally {
       setLoading(false);
@@ -161,9 +214,22 @@ export default function Home() {
         ) : (
           <div className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              <WalletCard label="EOA Wallet" address={address} balance={eoaBalance} />
+              <WalletCard 
+                label="EOA Wallet" 
+                address={address} 
+                balance={eoaBalance}
+                showUsername={false}
+                signer={signer}
+              />
               {hasAccount && (
-                <WalletCard label="Smart Account" address={accountAddress} balance={aaBalance} />
+                <WalletCard 
+                  key={accountAddress}
+                  label="Smart Account" 
+                  address={accountAddress} 
+                  balance={aaBalance}
+                  showUsername={true}
+                  signer={signer}
+                />
               )}
             </div>
 
@@ -205,12 +271,39 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="flex justify-center py-10">
+              <div className="flex flex-col items-center py-10 space-y-4">
+                <div className="w-full max-w-md">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                      placeholder="Enter username (e.g. alice123)"
+                      className={`w-full px-4 py-2 bg-gray-800 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100 ${
+                        usernameError ? 'border-red-500' : 'border-gray-700'
+                      }`}
+                    />
+                    {checkingUsername && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                  {usernameError ? (
+                    <p className="mt-1 text-sm text-red-400">{usernameError}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-400">
+                      Your username will be registered as {username ? `${username}.units` : 'username.units'}
+                    </p>
+                  )}
+                </div>
+
                 <button
                   onClick={handleCreateAccount}
-                  disabled={loading}
+                  disabled={loading || !username || !!usernameError || checkingUsername}
                   className={`px-8 py-4 rounded-xl text-white font-medium text-lg transition-all duration-200 ${
-                    loading 
+                    loading || !username || !!usernameError || checkingUsername
                       ? 'bg-gray-700 cursor-not-allowed'
                       : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 active:transform active:scale-[0.99]'
                   }`}

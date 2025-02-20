@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { createAccount, getExistingAccount, getBalance } from './contracts';
+import { createAccount, createAccountWithName, getExistingAccount, getBalance } from './contracts';
 import { createUserOperation, submitUserOperation } from './userOperation';
 import { usePaymasterStore } from '../store';
 
@@ -27,7 +27,7 @@ export const updateBalances = async (
     return { eoaBalance, aaBalance };
 };
 
-export const checkAndCreateAccount = async (signer: ethers.Signer) => {
+export const checkAndCreateAccount = async (signer: ethers.Signer, username?: string) => {
     try {
         // First check if account exists
         const existingAccount = await getExistingAccount(signer);
@@ -35,8 +35,10 @@ export const checkAndCreateAccount = async (signer: ethers.Signer) => {
             return { accountAddress: existingAccount, isExisting: true };
         }
 
-        // If not, create new account
-        const accountAddress = await createAccount(signer);
+        // If not, create new account with or without username
+        const accountAddress = username 
+            ? await createAccountWithName(signer, username)
+            : await createAccount(signer);
         return { accountAddress, isExisting: false };
     } catch (error) {
         console.error('Error in checkAndCreateAccount:', error);
