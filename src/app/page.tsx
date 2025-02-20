@@ -269,7 +269,11 @@ export default function Home() {
                       />
                     )}
                     {activeTab === 'batch' && (
-                      <DualTransactionForm onSubmit={handleSendBatchTransactions} loading={txLoading} />
+                      <DualTransactionForm 
+                        onSubmit={handleSendBatchTransactions} 
+                        loading={txLoading}
+                        signer={signer}
+                      />
                     )}
                   </div>
                 </div>
