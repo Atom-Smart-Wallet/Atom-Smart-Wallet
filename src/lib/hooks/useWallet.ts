@@ -1,67 +1,144 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { LocalWallet } from '../services/localWallet';
+
+interface WalletState {
+  signer: ethers.Signer | undefined;
+  address: string;
+  balance: string;
+  isLoading: boolean;
+  error: string | null;
+}
 
 export const useWallet = () => {
-    const [signer, setSigner] = useState<ethers.Signer | undefined>(undefined);
-    const [address, setAddress] = useState<string>('');
+  const [state, setState] = useState<WalletState>({
+    signer: undefined,
+    address: '',
+    balance: '0',
+    isLoading: false,
+    error: null
+  });
 
-    const connectWallet = async () => {
-        try {
-            if (typeof window.ethereum !== 'undefined') {
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const newSigner = provider.getSigner();
-                setSigner(newSigner);
-                const newAddress = await newSigner.getAddress();
-                setAddress(newAddress);
-            } else {
-                throw new Error('MetaMask is not installed');
-            }
-        } catch (error) {
-            console.error('Error connecting wallet:', error);
-            setSigner(undefined);
-            setAddress('');
-        }
+  const updateBalance = async () => {
+    if (!state.address || !state.signer?.provider) return;
+
+    try {
+      const balance = await state.signer.provider.getBalance(state.address);
+      setState(prev => ({
+        ...prev,
+        balance: ethers.utils.formatEther(balance)
+      }));
+    } catch (error) {
+      console.error('Balance update error:', error);
+    }
+  };
+
+  const connectWallet = async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const localWallet = LocalWallet.getInstance();
+      const newSigner = await localWallet.getSigner();
+      const newAddress = await localWallet.getAddress();
+
+      // Get initial balance
+      const provider = await localWallet.getProvider();
+      const balance = await provider.getBalance(newAddress);
+
+      setState({
+        signer: newSigner,
+        address: newAddress,
+        balance: ethers.utils.formatEther(balance),
+        isLoading: false,
+        error: null
+      });
+
+      return { signer: newSigner, address: newAddress };
+    } catch (error) {
+      console.error('Error connecting local wallet:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Wallet bağlantısı başarısız';
+      
+      setState({
+        signer: undefined,
+        address: '',
+        balance: '0',
+        isLoading: false,
+        error: errorMessage
+      });
+
+      return null;
+    }
+  };
+
+  const resetWallet = () => {
+    const localWallet = LocalWallet.getInstance();
+    localWallet.reset();
+    setState({
+      signer: undefined,
+      address: '',
+      balance: '0',
+      isLoading: false,
+      error: null
+    });
+  };
+
+  // Initial wallet setup
+  useEffect(() => {
+    const initWallet = async () => {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      try {
+        const localWallet = LocalWallet.getInstance();
+        const newSigner = await localWallet.getSigner();
+        const newAddress = await localWallet.getAddress();
+
+        // Get initial balance
+        const provider = await localWallet.getProvider();
+        const balance = await provider.getBalance(newAddress);
+
+        setState({
+          signer: newSigner,
+          address: newAddress,
+          balance: ethers.utils.formatEther(balance),
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        console.error('Error initializing local wallet:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Wallet başlatılamadı';
+        
+        setState({
+          signer: undefined,
+          address: '',
+          balance: '0',
+          isLoading: false,
+          error: errorMessage
+        });
+      }
     };
 
-    useEffect(() => {
-        const checkConnection = async () => {
-            if (typeof window.ethereum !== 'undefined') {
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                try {
-                    const accounts = await provider.listAccounts();
-                    if (accounts.length > 0) {
-                        const newSigner = provider.getSigner();
-                        setSigner(newSigner);
-                        const newAddress = await newSigner.getAddress();
-                        setAddress(newAddress);
-                    }
-                } catch (error) {
-                    console.error('Error checking wallet connection:', error);
-                    setSigner(undefined);
-                    setAddress('');
-                }
-            }
-        };
+    initWallet();
+  }, []);
 
-        checkConnection();
+  // Balance update interval
+  useEffect(() => {
+    if (!state.address || !state.signer) return;
 
-        if (typeof window.ethereum !== 'undefined') {
-            window.ethereum.on('accountsChanged', () => {
-                checkConnection();
-            });
+    // Initial balance update
+    updateBalance();
 
-            window.ethereum.on('chainChanged', () => {
-                window.location.reload();
-            });
-        }
+    // Set up interval for balance updates
+    const interval = setInterval(updateBalance, 5000); // 5 seconds
 
-        return () => {
-            if (typeof window.ethereum !== 'undefined') {
-                window.ethereum.removeListener('accountsChanged', checkConnection);
-            }
-        };
-    }, []);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [state.address, state.signer]);
 
-    return { signer, connectWallet, address };
+  return {
+    ...state,
+    connectWallet,
+    resetWallet,
+    updateBalance
+  };
 }; 

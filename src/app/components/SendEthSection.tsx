@@ -39,8 +39,8 @@ export const SendEthSection = ({ signer: propSigner, accountAddress, onSuccess }
       setAmount('');
       onSuccess?.();
     } catch (err) {
-      console.error('Error sending ETH:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send ETH. Please try again.');
+      console.error('Error sending UNIT0:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send UNIT0. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export const SendEthSection = ({ signer: propSigner, accountAddress, onSuccess }
                 placeholder="Enter amount..."
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-                <span className="text-sm font-medium text-gray-400">ETH</span>
+                <span className="text-sm font-medium text-gray-400">UNIT0</span>
               </div>
             </div>
           </div>
