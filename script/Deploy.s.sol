@@ -30,10 +30,10 @@ contract DeployScript is Script {
         console.log("AccountFactory deployed at:", address(factory));
 
         // Initial setup
-        minimalPaymaster.deposit{value: 0.1 ether}();
+        minimalPaymaster.deposit{value: 0.08 ether}();
         console.log("MinimalPaymaster deposit made");
 
-        minimalPaymaster.addStake{value: 0.1 ether}(86400);
+        minimalPaymaster.addStake{value: 0.08 ether}(86400);
         console.log("MinimalPaymaster stake made");
 
         // Authorize factory in registry
