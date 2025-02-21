@@ -1,0 +1,20 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g opacity="0.5">
+    <path d="M0 0L400 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M50 0L400 350" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M100 0L400 300" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M150 0L400 250" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M200 0L400 200" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M250 0L400 150" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M300 0L400 100" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M350 0L400 50" stroke="currentColor" stroke-width="0.5"/>
+    
+    <path d="M0 50L350 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 100L300 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 150L250 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 200L200 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 250L150 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 300L100 400" stroke="currentColor" stroke-width="0.5"/>
+    <path d="M0 350L50 400" stroke="currentColor" stroke-width="0.5"/>
+  </g>
+</svg> 

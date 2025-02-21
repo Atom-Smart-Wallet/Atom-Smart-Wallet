@@ -1,18 +1,21 @@
 interface TabButtonProps {
+  children: React.ReactNode;
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  className?: string;
 }
 
-export const TabButton = ({ active, onClick, children }: TabButtonProps) => (
-  <button
-    onClick={onClick}
-    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-      active
-        ? 'bg-blue-600 text-white'
-        : 'text-gray-300 hover:text-gray-100 hover:bg-gray-800'
-    }`}
-  >
-    {children}
-  </button>
-); 
+export const TabButton = ({ children, active, onClick, className = '' }: TabButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`${
+        active
+          ? 'text-blue-500'
+          : 'text-gray-400 hover:text-gray-300'
+      } transition-colors duration-200 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}; 

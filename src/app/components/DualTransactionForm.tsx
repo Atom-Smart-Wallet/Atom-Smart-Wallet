@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getSmartAccountRegistry } from '@/lib/services/contracts';
 
@@ -17,6 +17,27 @@ export const DualTransactionForm = ({ onSubmit, loading, signer }: DualTransacti
   const [amount2, setAmount2] = useState('');
   const [error, setError] = useState('');
   const [resolving, setResolving] = useState(false);
+  const [hasSigner, setHasSigner] = useState(false);
+
+  useEffect(() => {
+    const checkSigner = async () => {
+      try {
+        if (signer) {
+          const address = await signer.getAddress();
+          setHasSigner(!!address);
+          console.log('Signer status:', { hasSigner: !!address, address });
+        } else {
+          setHasSigner(false);
+          console.log('No signer available');
+        }
+      } catch (err) {
+        console.error('Error checking signer:', err);
+        setHasSigner(false);
+      }
+    };
+
+    checkSigner();
+  }, [signer]);
 
   const resolveUsername = async (username: string): Promise<string> => {
     if (!signer) {
@@ -89,90 +110,142 @@ export const DualTransactionForm = ({ onSubmit, loading, signer }: DualTransacti
   };
 
   return (
-    <div className="bg-gray-900 rounded-2xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-100 mb-6">Send Batch Transactions</h2>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              First Recipient (address or username)
-            </label>
-            <input
-              type="text"
-              value={recipient1}
-              onChange={(e) => setRecipient1(e.target.value.toLowerCase())}
-              placeholder="0x... or username"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100"
-              disabled={loading || resolving}
-            />
+    <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-xl border border-gray-700/50 backdrop-blur-xl">
+      <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:20px_20px]" />
+      <div className="relative p-5 sm:p-6 md:p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 text-transparent bg-clip-text">
+            Batch Transactions
+          </h2>
+          <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+            </svg>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              First Amount (ETH)
-            </label>
-            <input
-              type="text"
-              value={amount1}
-              onChange={(e) => setAmount1(e.target.value)}
-              placeholder="0.1"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100"
-              disabled={loading || resolving}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Second Recipient (address or username)
-            </label>
-            <input
-              type="text"
-              value={recipient2}
-              onChange={(e) => setRecipient2(e.target.value.toLowerCase())}
-              placeholder="0x... or username"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100"
-              disabled={loading || resolving}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Second Amount (ETH)
-            </label>
-            <input
-              type="text"
-              value={amount2}
-              onChange={(e) => setAmount2(e.target.value)}
-              placeholder="0.1"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-100"
-              disabled={loading || resolving}
-            />
-          </div>
-          {error && (
-            <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
         </div>
 
-        <button
-          type="submit"
-          disabled={loading || resolving || !recipient1 || !recipient2 || !amount1 || !amount2 || !signer}
-          className={`w-full py-3 px-4 rounded-xl text-white font-medium text-lg transition-all duration-200 ${
-            loading || resolving || !recipient1 || !recipient2 || !amount1 || !amount2 || !signer
-              ? 'bg-gray-700 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 active:transform active:scale-[0.99]'
-          }`}
-        >
-          {!signer ? (
-            'Please Connect Wallet'
-          ) : loading || resolving ? (
-            <div className="flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-              {resolving ? 'Resolving Usernames...' : 'Sending...'}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
+            {/* First Transaction */}
+            <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 space-y-4">
+              <h3 className="text-sm font-medium text-gray-300">First Transaction</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Recipient Address or Username
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={recipient1}
+                    onChange={(e) => setRecipient1(e.target.value.toLowerCase())}
+                    placeholder="0x... or username.units"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    disabled={loading || resolving}
+                  />
+                  {resolving && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="amount1" className="block text-sm font-medium text-gray-300 mb-1">
+                  Amount 1 (UNIT0)
+                </label>
+                <input
+                  type="number"
+                  id="amount1"
+                  value={amount1}
+                  onChange={(e) => setAmount1(e.target.value)}
+                  placeholder="0.0 UNIT0"
+                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  disabled={loading}
+                />
+              </div>
             </div>
-          ) : (
-            'Send Transactions'
+
+            {/* Second Transaction */}
+            <div className="p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 space-y-4">
+              <h3 className="text-sm font-medium text-gray-300">Second Transaction</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Recipient Address or Username
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={recipient2}
+                    onChange={(e) => setRecipient2(e.target.value.toLowerCase())}
+                    placeholder="0x... or username.units"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    disabled={loading || resolving}
+                  />
+                  {resolving && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="amount2" className="block text-sm font-medium text-gray-300 mb-1">
+                  Amount 2 (UNIT0)
+                </label>
+                <input
+                  type="number"
+                  id="amount2"
+                  value={amount2}
+                  onChange={(e) => setAmount2(e.target.value)}
+                  placeholder="0.0 UNIT0"
+                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
           )}
-        </button>
-      </form>
+
+          <button
+            type="submit"
+            disabled={loading || resolving || !recipient1 || !recipient2 || !amount1 || !amount2 || !hasSigner}
+            className={`w-full relative group ${
+              loading || resolving || !recipient1 || !recipient2 || !amount1 || !amount2 || !hasSigner
+                ? 'bg-gray-700 cursor-not-allowed'
+                : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+            } rounded-xl py-3.5 px-4 text-white font-medium text-base transition-all duration-200 transform hover:translate-y-[-1px] active:translate-y-[1px]`}
+          >
+            <div className="absolute inset-0 rounded-xl bg-grid-white/[0.05] bg-[size:10px_10px]" />
+            <div className="relative flex items-center justify-center">
+              {loading || resolving ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  <span>{resolving ? 'Resolving Usernames...' : 'Sending Batch...'}</span>
+                </>
+              ) : !hasSigner ? (
+                <>
+                  <svg className="w-5 h-5 mr-2 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Connect Wallet</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                  </svg>
+                  <span>Send Batch</span>
+                </>
+              )}
+            </div>
+          </button>
+        </form>
+      </div>
     </div>
   );
 }; 
