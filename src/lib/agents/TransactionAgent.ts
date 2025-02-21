@@ -4,14 +4,32 @@ import { sendSingleTransaction, sendBatchTransactions } from '../services/wallet
 import { getSmartAccountRegistry, sendEthToAAWallet } from '../services/contracts';
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
+// Onay bekleyen işlem için tip tanımı
+interface PendingTransaction {
+  type: 'single' | 'batch' | 'fund';
+  recipient?: string;
+  recipients?: string[];
+  amount?: string;
+  amounts?: string[];
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+}
+
 export class TransactionAgent {
   private signer: ethers.Signer;
   private accountAddress: string;
   private model: ChatGoogleGenerativeAI;
+  private pendingTransaction: PendingTransaction | null = null;
+  private confirmationCallback: ((tx: PendingTransaction) => Promise<boolean>) | null = null;
 
-  constructor(signer: ethers.Signer, accountAddress: string) {
+  constructor(
+    signer: ethers.Signer, 
+    accountAddress: string,
+    confirmationCallback?: (tx: PendingTransaction) => Promise<boolean>
+  ) {
     this.signer = signer;
     this.accountAddress = accountAddress;
+    this.confirmationCallback = confirmationCallback || null;
     
     // Gemini modeli başlat
     this.model = new ChatGoogleGenerativeAI({
@@ -30,6 +48,14 @@ export class TransactionAgent {
       return address;
     }
     throw new Error(`Kullanıcı adı '${username}' bulunamadı`);
+  }
+
+  private async waitForConfirmation(tx: PendingTransaction): Promise<boolean> {
+    if (this.confirmationCallback) {
+      return await this.confirmationCallback(tx);
+    }
+    // Varsayılan olarak onaylanmış kabul et
+    return true;
   }
 
   private createTools() {
@@ -59,15 +85,38 @@ export class TransactionAgent {
               throw new Error('Invalid amount format');
             }
 
-            // Send transaction using the same function as the button
-            await sendSingleTransaction(
-              this.signer,
-              this.accountAddress,
-              resolvedAddress,
-              formattedAmount
-            );
+            // İşlem onayı için Promise oluştur
+            return new Promise(async (resolve, reject) => {
+              this.pendingTransaction = {
+                type: 'single',
+                recipient,
+                amount: formattedAmount,
+                resolve,
+                reject
+              };
 
-            return `✅ İşlem başarıyla gönderildi!\nAlıcı: ${recipient}\nMiktar: ${formattedAmount} ETH`;
+              const confirmed = await this.waitForConfirmation(this.pendingTransaction);
+              if (!confirmed) {
+                this.pendingTransaction = null;
+                throw new Error('İşlem kullanıcı tarafından iptal edildi');
+              }
+
+              try {
+                // Send transaction using the same function as the button
+                await sendSingleTransaction(
+                  this.signer,
+                  this.accountAddress,
+                  resolvedAddress,
+                  formattedAmount
+                );
+
+                resolve(`✅ İşlem başarıyla gönderildi!\nAlıcı: ${recipient}\nMiktar: ${formattedAmount} ETH`);
+              } catch (error) {
+                reject(error);
+              } finally {
+                this.pendingTransaction = null;
+              }
+            });
           } catch (error) {
             console.error('Transaction error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
@@ -112,20 +161,43 @@ export class TransactionAgent {
               throw new Error('Invalid amount format');
             });
 
-            // Send batch transaction using the same function as the button
-            await sendBatchTransactions(
-              this.signer,
-              this.accountAddress,
-              resolvedAddresses,
-              formattedAmounts
-            );
+            // İşlem onayı için Promise oluştur
+            return new Promise(async (resolve, reject) => {
+              this.pendingTransaction = {
+                type: 'batch',
+                recipients,
+                amounts: formattedAmounts,
+                resolve,
+                reject
+              };
 
-            // Create summary of transactions
-            const summary = recipients.map((recipient, i) => 
-              `${recipient}: ${amounts[i]} ETH`
-            ).join('\n');
+              const confirmed = await this.waitForConfirmation(this.pendingTransaction);
+              if (!confirmed) {
+                this.pendingTransaction = null;
+                throw new Error('İşlem kullanıcı tarafından iptal edildi');
+              }
 
-            return `✅ Batch işlem başarıyla gönderildi!\n\nÖzet:\n${summary}`;
+              try {
+                // Send batch transaction using the same function as the button
+                await sendBatchTransactions(
+                  this.signer,
+                  this.accountAddress,
+                  resolvedAddresses,
+                  formattedAmounts
+                );
+
+                // Create summary of transactions
+                const summary = recipients.map((recipient, i) => 
+                  `${recipient}: ${amounts[i]} ETH`
+                ).join('\n');
+
+                resolve(`✅ Batch işlem başarıyla gönderildi!\n\nÖzet:\n${summary}`);
+              } catch (error) {
+                reject(error);
+              } finally {
+                this.pendingTransaction = null;
+              }
+            });
           } catch (error) {
             console.error('Batch transaction error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
@@ -161,19 +233,41 @@ export class TransactionAgent {
               throw new Error('Miktar sıfırdan büyük olmalıdır');
             }
 
-            // Send ETH from EOA to AA wallet
-            console.log('Sending ETH to AA wallet...');
-            console.log('Signer:', this.signer);
-            console.log('Account address:', this.accountAddress);
-            
-            const tx = await sendEthToAAWallet(
-              this.signer,
-              this.accountAddress,
-              formattedAmount
-            );
-            console.log('Transaction result:', tx);
+            // İşlem onayı için Promise oluştur
+            return new Promise(async (resolve, reject) => {
+              this.pendingTransaction = {
+                type: 'fund',
+                amount: formattedAmount,
+                resolve,
+                reject
+              };
 
-            return `✅ Smart Account başarıyla fonlandı!\nGönderilen: ${formattedAmount} ETH\nAlıcı Hesap: Smart Account`;
+              const confirmed = await this.waitForConfirmation(this.pendingTransaction);
+              if (!confirmed) {
+                this.pendingTransaction = null;
+                throw new Error('İşlem kullanıcı tarafından iptal edildi');
+              }
+
+              try {
+                // Send ETH from EOA to AA wallet
+                console.log('Sending ETH to AA wallet...');
+                console.log('Signer:', this.signer);
+                console.log('Account address:', this.accountAddress);
+                
+                const tx = await sendEthToAAWallet(
+                  this.signer,
+                  this.accountAddress,
+                  formattedAmount
+                );
+                console.log('Transaction result:', tx);
+
+                resolve(`✅ Smart Account başarıyla fonlandı!\nGönderilen: ${formattedAmount} ETH\nAlıcı Hesap: Smart Account`);
+              } catch (error) {
+                reject(error);
+              } finally {
+                this.pendingTransaction = null;
+              }
+            });
           } catch (error) {
             console.error('Fund account tool error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
