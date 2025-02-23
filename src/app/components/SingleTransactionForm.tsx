@@ -35,7 +35,7 @@ export const SingleTransactionForm = ({ onSubmit, loading, signer }: SingleTrans
       }
       
       throw new Error(`Username '${username}' not found`);
-    } catch (err) {
+    } catch (err: any) {
       if (err.message.includes('Name expired or not registered')) {
         throw new Error(`Username '${username}' is expired or not registered`);
       } else if (err.message.includes('Invalid name format')) {
