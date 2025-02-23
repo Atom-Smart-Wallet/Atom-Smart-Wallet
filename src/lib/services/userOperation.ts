@@ -20,6 +20,7 @@ export const createUserOperation = async (
     params: UserOperationParams,
     nonceOffset: number = 0
 ) => {
+    console.log('Creating user operation with params:', { accountAddress, params, nonceOffset });
     const smartAccount = getSmartAccount(accountAddress, signer);
     const entryPoint = getEntryPoint(signer);
 
@@ -37,33 +38,47 @@ export const createUserOperation = async (
                 params.data || '0x'
             ]);
 
+        console.log('Encoded callData:', callData);
+
+        const requestBody = {
+            sender: accountAddress,
+            callData,
+            usePaymaster: params.usePaymaster,
+            nonceOffset
+        };
+        console.log('Sending request to bundler:', requestBody);
+
         // Request UserOperation creation from bundler
         const response = await fetch(`${BUNDLER_URL}/createUserOperation`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                sender: accountAddress,
-                callData,
-                usePaymaster: params.usePaymaster,
-                nonceOffset
-            }),
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify(requestBody),
         });
 
+        console.log('Bundler response status:', response.status);
+        const responseText = await response.text();
+        console.log('Bundler response text:', responseText);
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`Failed to create UserOperation: ${errorData.error || response.statusText}`);
+            throw new Error(`Failed to create UserOperation: ${responseText}`);
         }
 
-        const { userOp } = await response.json();
+        const userOp = JSON.parse(responseText).userOp;
+        console.log('Parsed userOp:', userOp);
 
         // Get the user operation hash
         const userOpHash = await entryPoint.getUserOpHash(userOp);
+        console.log('Generated userOpHash:', userOpHash);
 
         // Sign the user operation
         const signature = await signer.signMessage(ethers.utils.arrayify(userOpHash));
         userOp.signature = signature;
+        console.log('Added signature to userOp:', signature);
 
         return userOp;
     } catch (error) {
