@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { sha256 } from 'js-sha256';
 
 // Device fingerprint için kullanılacak özellikleri toplayan fonksiyon
 const getDeviceFingerprint = async (): Promise<string> => {
@@ -32,18 +33,12 @@ const getDeviceFingerprint = async (): Promise<string> => {
     
     // Tüm bileşenleri birleştir ve hash'le
     const fingerprint = components.join('|');
-    const fingerprintBuffer = new TextEncoder().encode(fingerprint);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', fingerprintBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return sha256(fingerprint);
   } catch (error) {
     console.error('Fingerprint oluşturma hatası:', error);
     // Fallback olarak timestamp ve random değer kullan
     const fallback = Date.now().toString() + Math.random().toString();
-    const fallbackBuffer = new TextEncoder().encode(fallback);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', fallbackBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return sha256(fallback);
   }
 };
 

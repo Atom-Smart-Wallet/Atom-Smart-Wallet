@@ -12,6 +12,39 @@ export interface WalletCardProps {
   signer?: ethers.Signer;
 }
 
+const copyToClipboard = async (text: string) => {
+  try {
+    // Modern API'yi dene
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    // Fallback: textarea kullanarak kopyalama
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-999999px';
+    textarea.style.top = '-999999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    try {
+      document.execCommand('copy');
+      textarea.remove();
+      return true;
+    } catch (err) {
+      console.error('Kopyalama başarısız:', err);
+      textarea.remove();
+      return false;
+    }
+  } catch (err) {
+    console.error('Kopyalama başarısız:', err);
+    return false;
+  }
+};
+
 export const WalletCard = ({ 
   label, 
   address, 
@@ -103,9 +136,9 @@ export const WalletCard = ({
             </div>
             {showCopy && (
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(address);
-                  // Optional: Add toast notification here
+                onClick={async () => {
+                  const success = await copyToClipboard(address);
+                  // Optional: Add toast notification here based on success
                 }}
                 className="p-1.5 hover:bg-white/10 active:bg-white/20 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
                 title="Copy address"
