@@ -1,80 +1,75 @@
 # Smart Account Contracts
 
-Bu proje, Account Abstraction (EIP-4337) tabanlı akıllı hesap sistemini içerir.
+This project includes a smart account system based on Account Abstraction (EIP-4337).
 
-## Kontratlar
+Repository: https://github.com/Atom-Smart-Wallet/Atom-Smart-Wallet.git
 
-- `SmartAccount.sol`: ERC-4337 uyumlu akıllı hesap kontratı
-- `AccountFactory.sol`: Yeni akıllı hesaplar oluşturmak için fabrika kontratı
-- `MinimalPaymaster.sol`: Basit bir paymaster implementasyonu
-- `SmartAccountRegistry.sol`: Kullanıcı adı kayıt sistemi
+## Contracts
 
-## Kurulum
+- `SmartAccount.sol`: ERC-4337 compatible smart account contract
+- `AccountFactory.sol`: Factory contract for creating new smart accounts
+- `MinimalPaymaster.sol`: Simple paymaster implementation
+- `SmartAccountRegistry.sol`: Username registration system
 
-1. Foundry'yi yükleyin:
+## Setup
+
+1. Install Foundry:
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
-2. Dependencies'leri yükleyin:
+2. Install Dependencies:
 ```bash
 forge install
 ```
 
-3. Kontratları derleyin:
+3. Compile Contracts:
 ```bash
 forge build
 ```
 
 ## Test
 
-Testleri çalıştırmak için:
+To run tests:
 ```bash
 forge test
 ```
 
-Detaylı test çıktısı için:
+For detailed test output:
 ```bash
 forge test -vvv
 ```
 
 ## Deploy
 
-1. `.env` dosyasını oluşturun:
+1. Create `.env` file:
 ```bash
 cp .env.example .env
 ```
 
-2. `.env` dosyasını düzenleyin:
+2. Edit `.env` file:
 ```
 PRIVATE_KEY=your_private_key
 RPC_URL=your_rpc_url
 ```
 
-3. Kontratları deploy edin:
+3. Deploy contracts:
 ```bash
 forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 ```
 
-## Paymaster Fonlama
+## Funding Paymaster
 
-MinimalPaymaster'ı fonlamak için:
+To fund MinimalPaymaster:
 ```bash
 forge script script/Fund.s.sol --rpc-url $RPC_URL --broadcast
 ```
 
-Bu script:
-- MinimalPaymaster'a 0.1 ETH deposit yapar
-- MinimalPaymaster için 0.1 ETH stake ekler (1 günlük unstake süresi ile)
+This script:
+- Deposits 0.1 ETH to MinimalPaymaster
+- Adds 0.1 ETH stake for MinimalPaymaster (with 1 day unstake period)
 
-## Kontrat Adresleri (Units Network)
-
-- EntryPoint: `0x5FBe6efF3cCde930542d535297166487c5d9ED5e`
-- AccountFactory: `0x4731b9A288AfBBc5b95AbeC9f7B7f1FD4dE079D1`
-- MinimalPaymaster: `0xe652A2E58c549a0C0589499b028d1af8c1f3A49d`
-- SmartAccountRegistry: `0x5c303c80AAc8AC998501e46951eb55c6DfA7c1E2`
-
-## Lisans
+## License
 
 MIT
