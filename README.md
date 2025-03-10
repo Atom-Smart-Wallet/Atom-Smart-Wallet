@@ -1,6 +1,6 @@
-# Units Network Bundler
+# Sonic Network Bundler
 
-A specialized ERC-4337 (Account Abstraction) bundler service developed for Units Network. This bundler processes and manages UserOperations, enabling account abstraction functionality on the Units Network.
+A specialized ERC-4337 (Account Abstraction) bundler service developed for Sonic Network. This bundler processes and manages UserOperations, enabling account abstraction functionality on the Sonic Network.
 
 ## Features
 
@@ -15,14 +15,14 @@ A specialized ERC-4337 (Account Abstraction) bundler service developed for Units
 
 - Node.js v16 or higher
 - npm or yarn
-- Access to Units Network RPC endpoint
+- Access to Sonic Network RPC endpoint
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/units-network/bundler.git
-cd bundler
+git clone https://github.com/Atom-Smart-Wallet/Atom-Smart-Wallet.git
+cd Atom-Smart-Wallet
 ```
 
 2. Install dependencies:
@@ -39,7 +39,7 @@ cp .env.example .env
 
 ```env
 # Network Configuration
-RPC_URL=https://testnet-rpc.units.network        # Units Network RPC endpoint
+RPC_URL=                                         # Sonic Network RPC endpoint
 ENTRYPOINT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3  # EntryPoint contract address
 PAYMASTER_ADDRESS=0x...                          # Optional paymaster contract address
 
@@ -52,7 +52,7 @@ PORT=3001                                        # Port for the bundler service
 ```
 
 Important notes:
-- The `RPC_URL` should point to a Units Network node
+- The `RPC_URL` should point to a Sonic Network node
 - The `ENTRYPOINT_ADDRESS` must be the deployed EntryPoint contract address
 - The `BUNDLER_PRIVATE_KEY` must be funded with native tokens for gas
 - The `PAYMASTER_ADDRESS` is optional and only needed if using a paymaster

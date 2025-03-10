@@ -75,11 +75,19 @@ export class UserOperationService {
             const callGasLimit = await this.estimateCallGas(tempUserOp);
             
             // Pack gas limits into bytes32
+            // Ensure we have valid hex values before concatenation
+            const verificationGasHex = ethers.utils.hexZeroPad(verificationGasLimit.toHexString(), 16);
+            const callGasHex = ethers.utils.hexZeroPad(callGasLimit.toHexString(), 16);
+            
+            console.log('Gas limits:', {
+                verificationGasLimit: verificationGasLimit.toString(),
+                callGasLimit: callGasLimit.toString(),
+                verificationGasHex,
+                callGasHex
+            });
+            
             const accountGasLimits = ethers.utils.hexZeroPad(
-                ethers.utils.hexConcat([
-                    ethers.utils.hexZeroPad(verificationGasLimit.toHexString(), 16),
-                    ethers.utils.hexZeroPad(callGasLimit.toHexString(), 16)
-                ]),
+                ethers.utils.hexConcat([verificationGasHex, callGasHex]),
                 32
             );
 
@@ -89,11 +97,19 @@ export class UserOperationService {
             const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || ethers.utils.parseUnits('2', 'gwei');
             
             // Pack gas fees into bytes32
+            // Ensure we have valid hex values before concatenation
+            const maxFeeHex = ethers.utils.hexZeroPad(maxFeePerGas.toHexString(), 16);
+            const priorityFeeHex = ethers.utils.hexZeroPad(maxPriorityFeePerGas.toHexString(), 16);
+            
+            console.log('Gas fees:', {
+                maxFeePerGas: maxFeePerGas.toString(),
+                maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+                maxFeeHex,
+                priorityFeeHex
+            });
+            
             const gasFees = ethers.utils.hexZeroPad(
-                ethers.utils.hexConcat([
-                    ethers.utils.hexZeroPad(maxFeePerGas.toHexString(), 16),
-                    ethers.utils.hexZeroPad(maxPriorityFeePerGas.toHexString(), 16)
-                ]),
+                ethers.utils.hexConcat([maxFeeHex, priorityFeeHex]),
                 32
             );
 
@@ -105,13 +121,29 @@ export class UserOperationService {
             };
 
             // Handle paymaster if enabled
-            if (params.usePaymaster) {
-                userOp.paymasterAndData = ethers.utils.hexConcat([
-                    config.PAYMASTER_ADDRESS,
-                    ethers.utils.hexZeroPad(ethers.utils.hexlify(3e6), 16),
-                    ethers.utils.hexZeroPad(ethers.utils.hexlify(1e6), 16),
-                    ethers.constants.HashZero
-                ]);
+            if (params.usePaymaster && config.PAYMASTER_ADDRESS) {
+                try {
+                    // Validate paymaster address
+                    if (!ethers.utils.isAddress(config.PAYMASTER_ADDRESS)) {
+                        console.warn('Invalid paymaster address in config, skipping paymaster');
+                        return userOp;
+                    }
+
+                    // Ensure all values are valid hex strings
+                    const paymasterAddress = ethers.utils.hexlify(ethers.utils.getAddress(config.PAYMASTER_ADDRESS));
+                    const verificationGasLimit = ethers.utils.hexZeroPad(ethers.utils.hexlify(3e6), 16);
+                    const postOpGasLimit = ethers.utils.hexZeroPad(ethers.utils.hexlify(1e6), 16);
+                    
+                    userOp.paymasterAndData = ethers.utils.hexConcat([
+                        paymasterAddress,
+                        verificationGasLimit,
+                        postOpGasLimit,
+                        ethers.constants.HashZero
+                    ]);
+                } catch (error) {
+                    console.error('Error setting up paymaster:', error);
+                    // Continue without paymaster if there's an error
+                }
             }
 
             return userOp;
